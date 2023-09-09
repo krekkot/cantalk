@@ -13,4 +13,6 @@ async def start(message: types.Message ):
     markup.add(types.KeyboardButton('Купити авіаквиток',web_app=WebAppInfo(url='https://transaviagroup.rezonuniversal.com/')))
     await message.answer('Купи свій квиток!', reply_markup=markup)
 
+@dp.message_handler(commands=['start'])
+
 executor.start_polling(dp)
