@@ -104,34 +104,10 @@ def handle_back_button(call):
     package_markup = create_package_keyboard()
     bot.send_message(user_id, "Виберіть, будь ласка, пакет:", reply_markup=package_markup)
 
-def create_back_button(package_key):
-    markup = types.InlineKeyboardMarkup()
-    back_button = types.InlineKeyboardButton('Назад', callback_data=f"back_{package_key}")
-    markup.add(back_button)
-    return markup
+
 @bot.callback_query_handler(func=lambda call: call.data == "handle_free_lessons")
 def handle_free_lessons(call):
     user_id = call.from_user.id
-    try:
-        # Отримання таблиці на сторінці "Безкоштовні уроки"
-        worksheet = client.open_by_url(sheet_url).worksheet("Безкоштовні уроки")
-
-        # Перевірка, чи користувач вже є в таблиці (за допомогою унікального ідентифікатора)
-        # І додавання інформації про користувача, якщо він відсутній
-        user_record = {
-            'user_id': user_id,
-            # Додайте інші дані користувача, які вам потрібні
-        }
-        existing_users = worksheet.col_values(1)  # Перевірка існуючих користувачів за першим стовпчиком
-        if str(user_id) not in existing_users:
-            user_data_list = [user_record.get(key, '') for key in ['user_id']]  # Вставте всі дані про користувача
-            worksheet.append_row(user_data_list)  # Додавання користувача до таблиці
-        else:
-            print(f"Користувач {user_id} вже отримував безкоштовні уроки.")
-            bot.send_message(user_id, "Ви вже отримували безкоштовні уроки.")
-
-    except Exception as e:
-        print(f"Помилка при оновленні таблиці: {str(e)}")
 
     # Перевірка, чи користувач вже отримував безкоштовні уроки
     if user_id in users_with_free_lessons:
@@ -143,13 +119,32 @@ def handle_free_lessons(call):
         # Надсилання користувачеві посилань на уроки
         for lesson_number in random_lessons:
             lesson_url = gsheet.cell(lesson_number, 3).value  # Рядки A2:A57
-            bot.send_message(user_id, f"Безкоштовний урок: {lesson_url}", reply_markup=create_back_button(selected_user_packages.get(user_id, '')))
+            bot.send_message(user_id, f"Безкоштовний урок: {lesson_url}")
 
         # Додавання користувача до списку тих, хто вже отримав безкоштовні уроки
         users_with_free_lessons.add(user_id)
 
         # Оновлення таблиці Google-документа для відзначення користувача
+        try:
+            # Отримання таблиці на сторінці "Безкоштовні уроки"
+            worksheet = client.open_by_url(sheet_url).worksheet("Безкоштовні уроки")
 
+            # Перевірка, чи користувач вже є в таблиці (за допомогою унікального ідентифікатора)
+            # І додавання інформації про користувача, якщо він відсутній
+            user_record = {
+                'user_id': user_id,
+                # Додайте інші дані користувача, які вам потрібні
+            }
+            existing_users = worksheet.col_values(1)  # Перевірка існуючих користувачів за першим стовпчиком
+            if str(user_id) not in existing_users:
+                user_data_list = [user_record.get(key, '') for key in ['user_id']]  # Вставте всі дані про користувача
+                worksheet.append_row(user_data_list)  # Додавання користувача до таблиці
+            else:
+                print(f"Користувач {user_id} вже отримував безкоштовні уроки.")
+                bot.send_message(user_id, "Ви вже отримували безкоштовні уроки.")
+
+        except Exception as e:
+            print(f"Помилка при оновленні таблиці: {str(e)}")
 
 
 # TODO: Добавьте обработку оплаты через Portmone
