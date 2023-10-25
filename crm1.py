@@ -4,18 +4,18 @@ import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 import random
 
+
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
 client = gspread.authorize(creds)
 sheet_url = "https://docs.google.com/spreadsheets/d/1WWmBw7LSUg8WHrQjbVMfSNl_2EA8NYUcE6Zpg2LiBto/edit?usp=sharing"
 gsheet = client.open_by_url(sheet_url).sheet1
-worksheet = client.open_by_url(sheet_url).worksheet("Безкоштовні уроки")
 
 # Установка токена бота
 bot = telebot.TeleBot('6337428893:AAFFWOQRUTi-3U_FVM_TE4Izz-VJpRuH6ws')
 
 languages = {'ru': 'Русский', 'uk': 'Українська'}
-selected_user_packages = {}
+
 # Определение пакетов
 packages = {
     'basic': {
@@ -53,11 +53,7 @@ def create_package_keyboard():
         button_text = f"Дізнатись про {package_info['name']}"
         button = types.InlineKeyboardButton(text=button_text, callback_data=f"package_{package_key}")
         markup.add(button)
-    markup.add(telebot.types.InlineKeyboardButton('Сайт курсу', url='https://cantalk.com.ua/'))
-    markup.add(telebot.types.InlineKeyboardButton('Отримати 3 випадкових уроки з курсу безплатно', callback_data='handle_free_lessons'))
     return markup
-
-
 
 # Обробка команди /start
 @bot.message_handler(commands=['start'])
@@ -69,87 +65,56 @@ def handle_start(message):
     language_markup = create_language_keyboard()
     package_markup = create_package_keyboard()
 
-    bot.send_message(chat_id, f"Привіт, {message.from_user.first_name} {message.from_user.last_name}!\nЯ бот для продажу онлайн-курсу 'ПЕРЕГОВОРИ I ЛIДЕРСТВО' !\nОберіть, будь ласка, мову:", reply_markup=language_markup)
+    bot.send_message(chat_id, f"Привіт, {message.from_user.first_name} {message.from_user.last_name}!\nЯ бот для продажу онлайн-курсу 'ПЕРЕГОВОРИ I ЛIДЕРСТВО' !\nОберіть,,будь ласка,мову:", reply_markup=language_markup)
 
-# @bot.callback_query_handler(func=lambda call: call.data in languages)
+
 @bot.callback_query_handler(func=lambda call: call.data in languages)
 def handle_language_selection(call):
     chat_id = call.message.chat.id
     language = call.data
     if language == 'ru':
-        bot.send_message(chat_id, "Вибачте, але поки я не розмовляю мовою окупанта.\nВиберіть, будь ласка, іншу мову", reply_markup=create_language_keyboard())
+        bot.send_message(chat_id, "Вибачте, але поки я не розмовляю мовою окупанта.")
     else:
         # Тут ви можете зберегти вибір мови користувача в базі даних, якщо потрібно.
-        bot.send_message(chat_id, f"Дякую, що вибрали Українську!\n Що саме Вас цікавить?", reply_markup=create_package_keyboard())
+        bot.send_message(chat_id, f"Дякую,що вибрали {languages[language]}")
+
+@bot.message_handler(func=lambda message: message.text == f'🇺🇦 {languages["ua"]}')
+def handle_ukrainian_language(message):
+    bot.send_message(message.chat_id, f"Що саме Вас цікавить? {languages[language]}",
+                     reply_markup=package_markup)
+
+
 
 # Обработка команд для каждого пакета
-def return_keyboard(package_key):
-    markup = types.InlineKeyboardMarkup()
-    markup.add(telebot.types.InlineKeyboardButton('Назад', callback_data=f"back_{package_key}"))
-    return markup
 @bot.callback_query_handler(func=lambda call: call.data.startswith("package_"))
 def handle_package_selection(call):
     user_id = call.from_user.id
     package_key = call.data.split("_")[1]
-    selected_user_packages[user_id] = package_key  # Зберегти вибір користувача
     selected_package = packages.get(package_key)
 
     if selected_package:
-        bot.send_message(user_id, f"{selected_package['name']}\n\n{selected_package['description']}\n\nЦена: {selected_package['price']}", reply_markup=return_keyboard(package_key))
+        bot.send_message(user_id, f"{selected_package['name']}\n\n{selected_package['description']}\n\nЦена: {selected_package['price']}")
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("back_"))
-def handle_back_button(call):
-    user_id = call.from_user.id
-    package_key = call.data.split("_")[1]
-    package_markup = create_package_keyboard()
-    bot.send_message(user_id, "Виберіть, будь ласка, пакет:", reply_markup=package_markup)
+@bot.message_handler(func=lambda message: message.text == "Отримати 3 випадкових уроки з курсу безплатно")
+def handle_free_lessons(message):
+    user_id = message.from_user.id
 
-
-@bot.callback_query_handler(func=lambda call: call.data == "handle_free_lessons")
-def handle_free_lessons(call):
-    user_id = call.from_user.id
-
-    # Перевірка, чи користувач вже отримував безкоштовні уроки
+    # Проверка, получал ли пользователь уже бесплатные уроки
     if user_id in users_with_free_lessons:
-        bot.send_message(user_id, "Ви вже отримували безкоштовні уроки.")
+        bot.send_message(user_id, "Ви вже отримували безплатні уроки.")
     else:
-        # Генерування трьох випадкових уроків
-        random_lessons = random.sample(range(2, 58), 3)  # Рядки B2:B57
+        # Генерация трех случайных уроков
+        random_lessons = random.sample(range(2, 58), 3)  # Строки B2:B57
 
-        # Надсилання користувачеві посилань на уроки
+        # Отправка пользователю ссылок на уроки
         for lesson_number in random_lessons:
-            lesson_url = gsheet.cell(lesson_number, 3).value  # Рядки A2:A57
-            bot.send_message(user_id, f"Безкоштовний урок: {lesson_url}")
+            lesson_url = gsheet.cell(lesson_number, 3).value  # Строки A2:A57
+            bot.send_message(user_id, f"Безкоштовний урок : {lesson_url}")
 
-        # Додавання користувача до списку тих, хто вже отримав безкоштовні уроки
+        # Добавление пользователя в список тех, кто уже получал бесплатные уроки
         users_with_free_lessons.add(user_id)
-
-        # Оновлення таблиці Google-документа для відзначення користувача
-        try:
-            # Отримання таблиці на сторінці "Безкоштовні уроки"
-            worksheet = client.open_by_url(sheet_url).worksheet("Безкоштовні уроки")
-
-            # Перевірка, чи користувач вже є в таблиці (за допомогою унікального ідентифікатора)
-            # І додавання інформації про користувача, якщо він відсутній
-            user_record = {
-                'user_id': user_id,
-                # Додайте інші дані користувача, які вам потрібні
-            }
-            existing_users = worksheet.col_values(1)  # Перевірка існуючих користувачів за першим стовпчиком
-            if str(user_id) not in existing_users:
-                user_data_list = [user_record.get(key, '') for key in ['user_id']]  # Вставте всі дані про користувача
-                worksheet.append_row(user_data_list)  # Додавання користувача до таблиці
-            else:
-                print(f"Користувач {user_id} вже отримував безкоштовні уроки.")
-                bot.send_message(user_id, "Ви вже отримували безкоштовні уроки.")
-
-        except Exception as e:
-            print(f"Помилка при оновленні таблиці: {str(e)}")
-
 
 # TODO: Добавьте обработку оплаты через Portmone
 
 # Запуск бота
 bot.polling()
-
-print
